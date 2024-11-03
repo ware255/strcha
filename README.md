@@ -1,0 +1,2 @@
+# strenc
+Wikipediaにあるchachaのコードを借りて暗号化
