@@ -1,12 +1,14 @@
 #pragma once
 
+#define ROUNDS 20
+#define BLOCK_SIZE 64
+
 #define ROTL(a,b) (((a) << (b)) | ((a) >> (32 - (b))))
 #define QR(a, b, c, d) (                \
     a += b,  d ^= a,  d = ROTL(d,16),   \
     c += d,  b ^= c,  b = ROTL(b,12),   \
     a += b,  d ^= a,  d = ROTL(d, 8),   \
     c += d,  b ^= c,  b = ROTL(b, 7))
-#define ROUNDS 20
 
 #ifdef _KERNEL_MODE
 namespace std
@@ -116,22 +118,32 @@ namespace cha
     private:
         __forceinline constexpr void crypt(T* data)
         {
-            unsigned int block[16] = {}, key[16] = {};
-            unsigned int counter = 0;
+            unsigned int block[16]{}, x[16]{}, key[8]{}, nonce[3]{};
+            unsigned int counter = 1;
             size_t i = 0, j = 0, k = 0;
 
             key[0] = _key1;
             key[1] = _key2;
-            for (i = 2; i < 16; i++)
+            for (i = 2; i < 8; i++)
                 key[i] = (48271 * i + (__TIME__[7] - '0')) % 2147483647;
 
-            for (i = 0; i < _size; i += 64) {
-                block[12] = counter;
+            for (i = 0; i < 3; i++)
+                nonce[i] = (48271 * i) % 2147483647;
 
-                unsigned int x[16] = {};
-                for (j = 0; j < 16; ++j)    
-                    x[j] = key[j];
-                // 10 loops × 2 rounds/loop = 20 rounds
+            for (i = 0; i < _size; i += BLOCK_SIZE) {
+                block[0] = 0x61707865;
+                block[1] = 0x3320646e;
+                block[2] = 0x79622d32;
+                block[3] = 0x6b206574;
+                for (j = 0; j < 8; j++)
+                    block[j+4] = key[j];
+                block[12] = counter;
+                for (j = 0; j < 3; j++)
+                    block[j+13] = nonce[j];
+
+                for (j = 0; j < 16; ++j)
+                    x[j] = block[j];
+
                 for (j = 0; j < ROUNDS; j += 2) {
                     // Odd round
                     QR(x[0], x[4], x[ 8], x[12]); // column 0
@@ -144,12 +156,11 @@ namespace cha
                     QR(x[2], x[7], x[ 8], x[13]); // diagonal 3
                     QR(x[3], x[4], x[ 9], x[14]); // diagonal 4
                 }
+
                 for (j = 0; j < 16; ++j)
-                    block[j] = x[j] + key[j];
+                    block[j] = (x[j] + block[j]) & 0xffffffff;
 
-                size_t block_size = (_size - i < 64) ? (_size - i) : 64;
-
-                unsigned char block_bytes[64] = {};
+                unsigned char block_bytes[BLOCK_SIZE]{};
                 for (k = 0; k < 16; ++k) {
                     block_bytes[k * 4 + 0] = (block[k] >> 0) & 0xFF;
                     block_bytes[k * 4 + 1] = (block[k] >> 8) & 0xFF;
@@ -157,6 +168,7 @@ namespace cha
                     block_bytes[k * 4 + 3] = (block[k] >> 24) & 0xFF;
                 }
 
+                size_t block_size = (_size - i < 64) ? (_size - i) : 64;
                 for (j = 0; j < block_size; ++j)
                     _storage[i + j] = data[i + j] ^ block_bytes[j];
 
