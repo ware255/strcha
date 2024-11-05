@@ -1,4 +1,4 @@
-# strenc
+# strcha
 Wikipediaにあるchachaのコードを借りて暗号化
 
 ## 使い方
