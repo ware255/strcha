@@ -125,10 +125,10 @@ namespace cha
             key[0] = _key1;
             key[1] = _key2;
             for (i = 2; i < 8; i++)
-                key[i] = (48271 * i + (__TIME__[7] - '0')) % 2147483647;
+                key[i] = (48271 * i) % 2147483647;
 
             for (i = 0; i < 3; i++)
-                nonce[i] = (48271 * i) % 2147483647;
+                nonce[i] = (48271 * i + (__TIME__[7] - '0')) % 2147483647;
 
             for (i = 0; i < _size; i += BLOCK_SIZE) {
                 block[0] = 0x61707865;
